@@ -5,7 +5,7 @@ import type { ChatMessage } from '../providers/types.js';
 export type StoredAssistant = {
 	reply: string;
 	analysis: string;
-	suggestions: string[];
+	suggestions: { text: string; reading: string }[];
 	grammarNotes: string[];
 };
 
@@ -15,6 +15,10 @@ export interface ChatStore {
 	getMessages(sessionId: string): Promise<ChatMessage[]>;
 	addUserMessage(sessionId: string, content: string): Promise<void>;
 	addAssistantMessage(sessionId: string, data: StoredAssistant): Promise<void>;
+	getCachedTranslation(text: string, targetLang: string): Promise<string | null>;
+	setCachedTranslation(text: string, targetLang: string, translation: string): Promise<void>;
+	getCachedTopicPrompt(topic: string, context: string): Promise<string | null>;
+	setCachedTopicPrompt(topic: string, context: string, prompt: string): Promise<void>;
 }
 
 export class MongoChatStore implements ChatStore {
@@ -71,6 +75,40 @@ export class MongoChatStore implements ChatStore {
 			createdAt: new Date()
 		});
 	}
+
+	async getCachedTranslation(text: string, targetLang: string): Promise<string | null> {
+		const db = await getDb();
+		const translations = db.collection('translations');
+		const result = await translations.findOne({ text, targetLang });
+		return result ? (result.translation as string) : null;
+	}
+
+	async setCachedTranslation(text: string, targetLang: string, translation: string) {
+		const db = await getDb();
+		const translations = db.collection('translations');
+		await translations.updateOne(
+			{ text, targetLang },
+			{ $set: { translation, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+			{ upsert: true }
+		);
+	}
+
+	async getCachedTopicPrompt(topic: string, context: string): Promise<string | null> {
+		const db = await getDb();
+		const topicPrompts = db.collection('topic_prompts');
+		const result = await topicPrompts.findOne({ topic, context });
+		return result ? (result.prompt as string) : null;
+	}
+
+	async setCachedTopicPrompt(topic: string, context: string, prompt: string) {
+		const db = await getDb();
+		const topicPrompts = db.collection('topic_prompts');
+		await topicPrompts.updateOne(
+			{ topic, context },
+			{ $set: { prompt, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } },
+			{ upsert: true }
+		);
+	}
 }
 
 export class MemoryChatStore implements ChatStore {
@@ -101,5 +139,21 @@ export class MemoryChatStore implements ChatStore {
 		const session = this.sessions.get(sessionId);
 		if (!session) return;
 		session.messages.push({ role: 'assistant', content: data.reply });
+	}
+
+	async getCachedTranslation(text: string, targetLang: string): Promise<string | null> {
+		return null;
+	}
+
+	async setCachedTranslation(text: string, targetLang: string, translation: string) {
+		// No-op for memory store
+	}
+
+	async getCachedTopicPrompt(topic: string, context: string): Promise<string | null> {
+		return null;
+	}
+
+	async setCachedTopicPrompt(topic: string, context: string, prompt: string) {
+		// No-op for memory store
 	}
 }

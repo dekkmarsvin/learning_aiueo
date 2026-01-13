@@ -50,3 +50,16 @@ npm test
 - LM Studio: set `LLM_PROVIDER=lmstudio`, `LLM_BASE_URL=http://host.docker.internal:1234`
 - OpenAI: set `LLM_PROVIDER=openai`, `LLM_BASE_URL=https://api.openai.com`, `LLM_API_KEY=...`
 - Gemini: set `LLM_PROVIDER=gemini`, `GEMINI_API_KEY=...`, `LLM_MODEL=gemini-1.5-flash`
+
+## Project brain (recent work)
+See `project_brain/SUMMARY.md` for a concise changelog of the latest feature work and verification notes.
+
+Highlights:
+- Kana hint in the input, prediction chips, and suggestion chips near the chat box.
+- Translation panel with "Use this" hint workflow (kanji + reading).
+- Furigana preview, hover translation tooltip, and localized analysis/grammar notes.
+- Topic suggestions upgraded to full LLM-generated sentences with MongoDB caching.
+
+Supporting sources:
+- Detailed plans and walkthroughs: `project_brain/sources/`
+- Optional screenshots: `project_brain/assets/brain_media/` (ignored by git)

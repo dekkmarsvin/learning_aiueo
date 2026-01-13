@@ -1,0 +1,28 @@
+# Task: Japanese Learning Features Enhancements
+
+- [x] Analyze codebase
+- [x] Create implementation plan
+- [x] Backend Implementation
+    - [x] Implement `/api/furigana`
+    - [x] Implement `/api/hover` with caching
+    - [x] Update `/api/chat` for localized response
+    - [x] Fix JSON parsing robustness
+- [x] Frontend Implementation
+    - [x] Update API client
+    - [x] Implement Furigana input preview
+    - [x] Implement Analysis Translation display
+    - [x] Implement Hover Tooltip logic
+- [x] Cleanup and UX Improvements
+    - [x] Remove unused Kana Candidates section
+    - [x] Clear translation hint after AI response
+- [x] Smart Topic Suggestions
+    - [x] Create topic suggestion utility
+    - [x] Add holiday and seasonal logic
+    - [x] Update UI with chip display
+- [x] LLM-Generated Topic Sentences
+    - [x] Create backend API endpoint
+    - [x] Add database caching for topic prompts
+    - [x] Update frontend to fetch LLM-generated sentences
+- [x] Verification
+    - [x] Automated Browser Verification
+    - [x] Manual Verification & Screenshots

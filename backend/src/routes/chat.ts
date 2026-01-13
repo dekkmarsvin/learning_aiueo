@@ -6,42 +6,71 @@ type ChatRequestBody = {
 	sessionId?: string;
 	message?: string;
 	topic?: string;
+	targetLang?: string;
 };
 
 type StructuredResponse = {
 	reply: string;
 	analysis: string;
-	suggestions: string[];
+	suggestions: { text: string; reading: string }[];
 	grammarNotes: string[];
+	analysisTranslation?: string;
+	grammarNotesTranslation?: string[];
 };
 
-const systemPrompt = `You are a Japanese tutor and chat partner.
-Respond in natural Japanese.
-Also analyze the user's Japanese input and provide grammar notes and suggested replies.
-Return a single JSON object with keys: reply (string), analysis (string), suggestions (array of strings), grammarNotes (array of strings).
-Do not include any extra text outside JSON.`;
+const getSystemPrompt = (targetLang: string) => `You are an expert Japanese tutor and conversation partner.
+Your goal is to help the user improve their Japanese skills through natural conversation and detailed feedback.
+Target Language for explanations: ${targetLang === 'en' ? 'English' : 'Traditional Chinese (繁體中文)'}.
+
+Instructions:
+1. Respond to the user's message in natural, appropriate Japanese (Plain or Polite form depending on context).
+2. Analyze the user's input for grammar, vocabulary, and naturalness.
+3. Provide grammar notes and key points *in Japanese*.
+4. ALSO provide a translation of your analysis and grammar notes into the Target Language.
+5. Provide 3 suggested replies for the user to continue the conversation.
+
+Return a SINGLE JSON object with the following keys:
+- reply (string): Your Japanese response.
+- analysis (string): Analysis of user's input in Japanese.
+- analysisTranslation (string): Translation of the analysis into ${targetLang === 'en' ? 'English' : 'Traditional Chinese'}.
+- suggestions (array): [{ text: string, reading: string }] (reading in Hiragana).
+- grammarNotes (array of strings): Key grammar points/corrections in Japanese.
+- grammarNotesTranslation (array of strings): Translation of grammar notes into ${targetLang === 'en' ? 'English' : 'Traditional Chinese'}.
+
+Do not include any text outside the JSON object.`;
 
 const extractJson = (text: string): StructuredResponse | null => {
 	try {
+		// First try parsing as is
 		return JSON.parse(text) as StructuredResponse;
 	} catch {
-		const match = text.match(/\{[\s\S]*\}/);
-		if (!match) return null;
-		try {
-			return JSON.parse(match[0]) as StructuredResponse;
-		} catch {
-			return null;
+		// Try finding the first '{' and last '}'
+		const firstOpen = text.indexOf('{');
+		const lastClose = text.lastIndexOf('}');
+		if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+			try {
+				const jsonStr = text.substring(firstOpen, lastClose + 1);
+				return JSON.parse(jsonStr) as StructuredResponse;
+			} catch {
+				return null;
+			}
 		}
+		return null;
 	}
 };
 
 const normalizeStructured = (value: StructuredResponse | null, fallbackReply: string) => {
 	if (!value) {
+		// If parsing failed entirely, treat the whole text as the reply
+		// But if it looks like broken JSON, we might want to be careful.
+		// For now, valid text fallback.
 		return {
 			reply: fallbackReply,
 			analysis: '',
 			suggestions: [],
-			grammarNotes: []
+			grammarNotes: [],
+			analysisTranslation: '',
+			grammarNotesTranslation: []
 		};
 	}
 
@@ -49,7 +78,9 @@ const normalizeStructured = (value: StructuredResponse | null, fallbackReply: st
 		reply: value.reply || fallbackReply,
 		analysis: value.analysis || '',
 		suggestions: Array.isArray(value.suggestions) ? value.suggestions : [],
-		grammarNotes: Array.isArray(value.grammarNotes) ? value.grammarNotes : []
+		grammarNotes: Array.isArray(value.grammarNotes) ? value.grammarNotes : [],
+		analysisTranslation: value.analysisTranslation || '',
+		grammarNotesTranslation: Array.isArray(value.grammarNotesTranslation) ? value.grammarNotesTranslation : []
 	};
 };
 
@@ -59,7 +90,7 @@ export const registerChat = async (
 	store: ChatStore
 ) => {
 	app.post<{ Body: ChatRequestBody }>('/api/chat', async (request, reply) => {
-		const { sessionId, message, topic } = request.body || {};
+		const { sessionId, message, topic, targetLang = 'tc' } = request.body || {};
 
 		if (!message || typeof message !== 'string') {
 			return reply.status(400).send({ error: 'message is required' });
@@ -78,7 +109,7 @@ export const registerChat = async (
 		const chatHistory: ChatMessage[] = await store.getMessages(resolvedSessionId);
 
 		const promptMessages: ChatMessage[] = [
-			{ role: 'system', content: systemPrompt },
+			{ role: 'system', content: getSystemPrompt(targetLang) },
 			...chatHistory,
 			{
 				role: 'user',
@@ -98,7 +129,9 @@ export const registerChat = async (
 			reply: structured.reply,
 			analysis: structured.analysis,
 			suggestions: structured.suggestions,
-			grammarNotes: structured.grammarNotes
+			grammarNotes: structured.grammarNotes,
+			analysisTranslation: structured.analysisTranslation,
+			grammarNotesTranslation: structured.grammarNotesTranslation
 		};
 	});
 };

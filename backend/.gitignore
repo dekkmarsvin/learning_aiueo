@@ -1,0 +1,17 @@
+node_modules
+
+# Output
+/dist
+*.tsbuildinfo
+
+# Tests
+/coverage
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
