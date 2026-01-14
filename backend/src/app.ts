@@ -15,8 +15,15 @@ import type { ChatStore } from './store/chatStore.js';
 export const createApp = async (provider: LLMProvider, store: ChatStore, newsStore: NewsStore) => {
 	const app = Fastify({ logger: true });
 
+	// CORS configuration
+	// In production, set ALLOWED_ORIGINS to your domain(s), comma-separated.
+	// Example: https://myapp.com,http://localhost:3000
+	const allowedOrigins = process.env.ALLOWED_ORIGINS
+		? process.env.ALLOWED_ORIGINS.split(',')
+		: true; // Default to allow all if not set (for dev/convenience)
+
 	await app.register(cors, {
-		origin: true
+		origin: allowedOrigins
 	});
 
 	await registerHealth(app);
