@@ -73,10 +73,10 @@ jobs:
         with: 
           package-name: ${{ github.event.repository.name }}-backend
           package-type: 'container'
-          min-versions-to-keep: 1
+          min-versions-to-keep: 3
       
       - uses: actions/delete-package-versions@v5
         with: 
           package-name: ${{ github.event.repository.name }}-frontend
           package-type: 'container'
-          min-versions-to-keep: 1
+          min-versions-to-keep: 3
