@@ -165,6 +165,21 @@
 		}
 	};
 
+	const handleUseTranslation = async () => {
+		targetText = translationOutput;
+		targetReading = translationReading;
+		targetSegments = [];
+		try {
+			const segments = await getFurigana(translationOutput);
+			targetSegments = segments;
+		} catch (e) {
+			console.error(e);
+			targetSegments = [
+				{ surface: translationOutput, reading: translationReading },
+			];
+		}
+	};
+
 	const handleTranslate = async () => {
 		if (!translationInput.trim() || isTranslating) return;
 		isTranslating = true;
@@ -473,10 +488,7 @@
 							<p>{translationOutput}</p>
 							<button
 								class="copy-btn"
-								on:click={() => {
-									targetText = translationOutput;
-									targetReading = translationReading;
-								}}
+								on:click={handleUseTranslation}
 							>
 								Use this
 							</button>
