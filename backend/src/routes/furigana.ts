@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { LLMProvider, ChatMessage } from '../providers/types.js';
+import { cacheService } from '../services/cache.js';
 
 type FuriganaRequestBody = {
     text: string;
@@ -35,7 +36,17 @@ export const registerFurigana = async (
             return reply.status(400).send({ error: 'text is required' });
         }
 
-        // Simple optimization: if no kanji, return as is
+        if (text.length > 500) {
+            return reply.status(400).send({ error: 'text length must be <= 500 characters' });
+        }
+
+        const cacheKey = cacheService.generateKey('furigana', { text });
+        const cached = cacheService.get<FuriganaSegment[]>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        // Simple optimization: if no kanji, return as is (but don't cache this trivial result to save memory? actually caching it is fine)
         if (!/[\u4e00-\u9faf]/.test(text)) {
             return [{ surface: text, reading: '' }];
         }
@@ -70,6 +81,7 @@ export const registerFurigana = async (
                 return [{ surface: text, reading: '' }];
             }
 
+            cacheService.set(cacheKey, parsed);
             return parsed;
         } catch (err) {
             request.log.error(err);

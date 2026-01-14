@@ -123,17 +123,46 @@
 	// Practice target state
 	let targetText = "";
 	let targetReading = "";
+	let targetSegments: FuriganaSegment[] = [];
 
-	const handleSuggestionClick = (suggestion: {
+	const handleTopicClick = async (suggestion: TopicSuggestion) => {
+		const text = topicPrompts[suggestion.keyword] || suggestion.keyword;
+		topic = text;
+		targetText = text;
+		targetReading = "";
+		targetSegments = [];
+		message = "";
+
+		try {
+			const segments = await getFurigana(text);
+			targetSegments = segments;
+			targetReading = segments
+				.map((s) => s.reading || s.surface)
+				.join("");
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
+	const handleSuggestionClick = async (suggestion: {
 		text: string;
 		reading: string;
 	}) => {
-		message = suggestion.text;
-		overrideHint = suggestion.reading;
-		// Trigger furigana update logic manually if needed, or let the reactive statement handle it if we bind it.
-		// However, handleInput calls are for typing.
-		// Let's call updateFurigana directly.
-		updateFurigana(suggestion.text);
+		targetText = suggestion.text;
+		targetReading = suggestion.reading;
+		targetSegments = [];
+		message = "";
+
+		try {
+			const segments = await getFurigana(suggestion.text);
+			targetSegments = segments;
+		} catch (e) {
+			console.error(e);
+			// Fallback if API fails: create a single segment with the full reading (less ideal but works)
+			targetSegments = [
+				{ surface: suggestion.text, reading: suggestion.reading },
+			];
+		}
 	};
 
 	const handleTranslate = async () => {
@@ -275,10 +304,7 @@
 						<button
 							class="topic-chip"
 							type="button"
-							on:click={() =>
-								(topic =
-									topicPrompts[suggestion.keyword] ||
-									suggestion.keyword)}
+							on:click={() => handleTopicClick(suggestion)}
 							title={suggestion.description}
 						>
 							{topicPrompts[suggestion.keyword] ||
@@ -286,12 +312,6 @@
 						</button>
 					{/each}
 				</div>
-				<input
-					id="topic"
-					type="text"
-					placeholder={t.topicPlaceholder}
-					bind:value={topic}
-				/>
 			</div>
 		</div>
 	</header>
@@ -317,8 +337,26 @@
 			<div class="chat-input-wrapper">
 				{#if targetText}
 					<div class="target-display">
-						<div class="target-reading">{targetReading}</div>
-						<div class="target-text">{targetText}</div>
+						{#if targetSegments.length > 0}
+							<div class="target-content">
+								{#each targetSegments as segment}
+									{#if segment.reading && segment.reading !== segment.surface}
+										<ruby
+											>{segment.surface}<rt
+												>{segment.reading}</rt
+											></ruby
+										>
+									{:else}
+										<span>{segment.surface}</span>
+									{/if}
+								{/each}
+							</div>
+						{:else}
+							<div class="target-content">
+								<ruby>{targetText}<rt>{targetReading}</rt></ruby
+								>
+							</div>
+						{/if}
 					</div>
 				{/if}
 				{#if message}
@@ -550,7 +588,6 @@
 		letter-spacing: 0.5px;
 	}
 
-	.control-group input,
 	.control-group select {
 		border: none;
 		border-bottom: 2px solid rgba(28, 25, 48, 0.2);
@@ -716,10 +753,21 @@
 		margin-bottom: 2px;
 	}
 
-	.target-text {
-		font-size: 16px;
+	.target-text,
+	.target-content {
+		font-size: 18px;
 		font-weight: 700;
 		color: #1f1f26;
+		line-height: 2;
+	}
+
+	.target-content ruby {
+		margin: 0 2px;
+	}
+
+	.target-content rt {
+		font-size: 0.6em;
+		color: #666;
 	}
 
 	.kana-hint {

@@ -6,6 +6,7 @@ import { registerTranslate } from './routes/translate.js';
 import { registerFurigana } from './routes/furigana.js';
 import { registerHover } from './routes/hover.js';
 import { registerTopicPrompt } from './routes/topicPrompt.js';
+import { registerAnalyze } from './routes/analyze.js';
 import type { LLMProvider } from './providers/types.js';
 import type { ChatStore } from './store/chatStore.js';
 
@@ -22,6 +23,7 @@ export const createApp = async (provider: LLMProvider, store: ChatStore) => {
 	await registerFurigana(app, provider);
 	await registerHover(app, provider, store);
 	await registerTopicPrompt(app, provider, store);
+	await registerAnalyze(app, provider);
 
 	return app;
 };

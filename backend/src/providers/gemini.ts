@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { LLMProvider, ChatMessage } from './types.js';
 
 type GeminiConfig = {
@@ -5,17 +6,8 @@ type GeminiConfig = {
 	model: string;
 };
 
-type GeminiResponse = {
-	candidates?: { content?: { parts?: { text?: string }[] } }[];
-};
-
-const buildPrompt = (messages: ChatMessage[]) =>
-	messages
-		.map((message) => `${message.role.toUpperCase()}: ${message.content}`)
-		.join('\n');
-
 export const createGeminiProvider = ({ apiKey, model }: GeminiConfig): LLMProvider => {
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+	const genAI = new GoogleGenerativeAI(apiKey);
 
 	return {
 		async generate(messages: ChatMessage[]) {
@@ -23,28 +15,38 @@ export const createGeminiProvider = ({ apiKey, model }: GeminiConfig): LLMProvid
 				throw new Error('GEMINI_API_KEY is required when provider=gemini');
 			}
 
-			const prompt = buildPrompt(messages);
-			const response = await fetch(url, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					contents: [{ role: 'user', parts: [{ text: prompt }] }],
-					generationConfig: { temperature: 0.4 }
-				})
+			const systemMessage = messages.find((m) => m.role === 'system');
+			const conversationMessages = messages.filter((m) => m.role !== 'system');
+
+			const modelParams: any = { model: model };
+			if (systemMessage) {
+				modelParams.systemInstruction = systemMessage.content;
+			}
+
+			const genModel = genAI.getGenerativeModel(modelParams);
+
+			const history = conversationMessages.slice(0, -1).map((m) => ({
+				role: m.role === 'assistant' ? 'model' : 'user',
+				parts: [{ text: m.content }]
+			}));
+
+			const lastMessage = conversationMessages[conversationMessages.length - 1];
+			if (!lastMessage) {
+				throw new Error('No messages provided to generate response');
+			}
+
+			const chat = genModel.startChat({
+				history,
+				generationConfig: {
+					temperature: 0.4
+				}
 			});
 
-			if (!response.ok) {
-				const text = await response.text();
-				throw new Error(`Gemini request failed: ${response.status} ${text}`);
-			}
+			const result = await chat.sendMessage(lastMessage.content);
+			const response = result.response;
+			const text = response.text();
 
-			const data = (await response.json()) as GeminiResponse;
-			const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-			if (!content) {
-				throw new Error('Gemini response missing content');
-			}
-
-			return { content };
+			return { content: text };
 		}
 	};
 };

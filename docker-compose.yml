@@ -14,11 +14,13 @@ services:
       PORT: 8080
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB: aiueo
-      LLM_PROVIDER: lmstudio
-      LLM_MODEL: local-model
+      LLM_PROVIDER: gemini
+      # LLM_PROVIDER: lmstudio
+      # LLM_MODEL: local-model
+      LLM_MODEL: gemini-3-flash-preview
       LLM_BASE_URL: http://host.docker.internal:1234
-      LLM_API_KEY: ""
-      GEMINI_API_KEY: ""
+      LLM_API_KEY: ${LLM_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
       - mongo
 

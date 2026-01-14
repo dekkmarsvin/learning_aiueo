@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { LLMProvider, ChatMessage } from '../providers/types.js';
 import type { ChatStore } from '../store/chatStore.js';
+import { cacheService } from '../services/cache.js';
 
 type HoverRequestBody = {
     text: string;
@@ -25,9 +26,15 @@ export const registerHover = async (
         }
 
         // 1. Check cache
-        const cached = await store.getCachedTranslation(text, targetLang);
+        if (text.length > 100) {
+            return reply.status(400).send({ error: 'text length must be <= 100 characters' });
+        }
+
+        // 1. Check cache
+        const cacheKey = cacheService.generateKey('hover', { text, targetLang });
+        const cached = cacheService.get<{ translation: string; cached: boolean }>(cacheKey);
         if (cached) {
-            return { translation: cached, cached: true };
+            return { ...cached, cached: true };
         }
 
         // 2. Call LLM
@@ -41,10 +48,10 @@ export const registerHover = async (
             const translation = llmResult.content.trim();
 
             // 3. Store in cache
-            // Don't await this to keep response fast
-            store.setCachedTranslation(text, targetLang, translation).catch(err => request.log.error(err));
+            const result = { translation, cached: false };
+            cacheService.set(cacheKey, result);
 
-            return { translation, cached: false };
+            return result;
         } catch (err) {
             request.log.error(err);
             return reply.status(500).send({ error: 'Translation failed' });

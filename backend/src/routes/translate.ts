@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { LLMProvider, ChatMessage } from '../providers/types.js';
+import { cacheService } from '../services/cache.js';
 
 type TranslateRequestBody = {
     text: string;
@@ -30,6 +31,16 @@ export const registerTranslate = async (
             return reply.status(400).send({ error: 'text is required' });
         }
 
+        if (text.length > 500) {
+            return reply.status(400).send({ error: 'text length must be <= 500 characters' });
+        }
+
+        const cacheKey = cacheService.generateKey('translate', { text, sourceLang });
+        const cached = cacheService.get<TranslateResponse>(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const messages: ChatMessage[] = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Source Language: ${sourceLang || 'Auto'}\nText: ${text}` }
@@ -42,11 +53,14 @@ export const registerTranslate = async (
             const jsonStr = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
             const parsed = JSON.parse(jsonStr);
 
-            return {
+            const result = {
                 original: text,
                 translated: parsed.translated,
                 reading: parsed.reading
             };
+
+            cacheService.set(cacheKey, result);
+            return result;
         } catch (err) {
             request.log.error(err);
             return reply.status(500).send({ error: 'Translation failed' });
