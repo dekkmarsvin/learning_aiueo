@@ -1,15 +1,17 @@
 <script lang="ts">
+	import NewsList from "$lib/components/NewsList.svelte";
 	import {
 		sendMessage,
 		translateText,
 		getFurigana,
 		getHoverTranslation,
 		getTopicPrompt,
+		getNews,
 	} from "$lib/api";
 
 	import { toKana } from "wanakana";
 	import { getPredictions } from "$lib/vocabulary";
-	import type { FuriganaSegment } from "$lib/types";
+	import type { FuriganaSegment, NewsItem } from "$lib/types";
 	import {
 		getTopicSuggestions,
 		type TopicSuggestion,
@@ -39,17 +41,21 @@
 		},
 	];
 
+	// News State
+	let newsItems: NewsItem[] = [];
+
 	// Language State
 	type Language = "tc" | "en";
 	let currentLanguage: Language = "tc";
 
 	const translations = {
 		tc: {
-			analysisTitle: "入力分析",
-			analysisDesc:
-				"這裡會顯示你的日文輸入分析，包含語法正確性與改進建議。",
+			analysisTitle: "入力分析 & ヒント",
+			analysisDesc: "這裡會顯示你的日文輸入分析以及相關的文法重點筆記。",
 			hintTitle: "入力ヒント",
 			hintDesc: "這裡會提供假名候選詞與相關的文法重點筆記。",
+			newsTitle: "日本のニュース",
+			newsDesc: "點擊新聞標題，與 AI 聊聊這則新聞。",
 			topicLabel: "話題",
 			topicPlaceholder: "例：旅行・學校・工作",
 			send: "送信",
@@ -57,12 +63,14 @@
 			placeholder: "日本語で入力してください...",
 		},
 		en: {
-			analysisTitle: "Input Analysis",
+			analysisTitle: "Analysis & Hints",
 			analysisDesc:
-				"Your Japanese input analysis will be shown here, including grammar correctness and improvement suggestions.",
+				"Your input analysis and relevant grammar notes will be shown here.",
 			hintTitle: "Input Hints",
 			hintDesc:
 				"Kana candidates and relevant grammar notes will be displayed here.",
+			newsTitle: "Japan News",
+			newsDesc: "Click a news title to discuss it with AI.",
 			topicLabel: "Topic",
 			topicPlaceholder: "Ex: Travel, School, Work",
 			send: "Send",
@@ -110,6 +118,25 @@
 		}
 
 		isSending = false;
+	};
+
+	const handleNewsSelect = async (event: CustomEvent<{ item: NewsItem }>) => {
+		const item = event.detail.item;
+
+		let contentStr = "";
+		if (item.content) {
+			contentStr = `\n\n内容概要：\n${item.content}`;
+		}
+
+		// Construct the initial message
+		const initialMsg = `気になっているニュースがあります：\n「${item.title}」\n(${item.url})${contentStr}\n\nこのニュースについて教えてください。会話しましょう。`;
+
+		// Set topic automatically
+		topic = "ニュース (News)";
+		message = initialMsg;
+
+		// Auto send
+		await handleSend();
 	};
 
 	let overrideHint: string | null = null;
@@ -217,8 +244,17 @@
 		}
 	};
 
+	const loadNews = async () => {
+		try {
+			newsItems = await getNews();
+		} catch (e) {
+			console.error("Failed to load news", e);
+		}
+	};
+
 	onMount(() => {
 		loadTopicPrompts();
+		loadNews();
 	});
 
 	// Furigana State
@@ -462,6 +498,30 @@
 							会話を送信すると分析が表示されます。
 						</p>
 					{/if}
+
+					<div class="section" style="margin-top: 24px;">
+						<h3>文法メモ (Grammar Notes)</h3>
+						{#if grammarNotes.length}
+							<ul>
+								{#each grammarNotes as note, i}
+									<li>
+										<div class="note-item">
+											<p class="orig-note">{note}</p>
+											{#if grammarNotesTranslation[i]}
+												<p class="trans-note">
+													{grammarNotesTranslation[i]}
+												</p>
+											{/if}
+										</div>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="muted">
+								文法の指摘やポイントが表示されます。
+							</p>
+						{/if}
+					</div>
 				</div>
 			</div>
 
@@ -498,33 +558,16 @@
 			</div>
 		</div>
 
-		<div class="panel hints">
-			<div class="panel-title">{t.hintTitle}</div>
-			<div class="panel-body">
-				<p class="explanation-text">{t.hintDesc}</p>
-
-				<div class="section">
-					<h3>文法メモ</h3>
-					{#if grammarNotes.length}
-						<ul>
-							{#each grammarNotes as note, i}
-								<li>
-									<div class="note-item">
-										<p class="orig-note">{note}</p>
-										{#if grammarNotesTranslation[i]}
-											<p class="trans-note">
-												{grammarNotesTranslation[i]}
-											</p>
-										{/if}
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="muted">
-							文法の指摘やポイントが表示されます。
-						</p>
-					{/if}
+		<div class="right-column">
+			<div class="panel news">
+				<div class="panel-title">{t.newsTitle}</div>
+				<div class="panel-body">
+					<p class="explanation-text">{t.newsDesc}</p>
+					<NewsList
+						news={newsItems}
+						targetLang={currentLanguage}
+						on:select={handleNewsSelect}
+					/>
 				</div>
 			</div>
 		</div>
@@ -665,7 +708,8 @@
 		align-items: start;
 	}
 
-	.center-column {
+	.center-column,
+	.right-column {
 		display: flex;
 		flex-direction: column;
 		gap: 20px;

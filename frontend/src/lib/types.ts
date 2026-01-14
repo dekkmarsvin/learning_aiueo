@@ -31,3 +31,13 @@ export type FuriganaSegment = {
 	surface: string;
 	reading: string;
 };
+
+export type NewsItem = {
+	title: string;
+	translatedTitle: string;
+	url: string;
+	source: string;
+	publishedAt: string;
+	content?: string;
+	translatedContent?: string;
+};

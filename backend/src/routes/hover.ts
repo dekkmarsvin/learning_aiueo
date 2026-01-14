@@ -26,8 +26,8 @@ export const registerHover = async (
         }
 
         // 1. Check cache
-        if (text.length > 100) {
-            return reply.status(400).send({ error: 'text length must be <= 100 characters' });
+        if (text.length > 1000) {
+            return reply.status(400).send({ error: 'text length must be <= 1000 characters' });
         }
 
         // 1. Check cache

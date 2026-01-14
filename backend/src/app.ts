@@ -8,9 +8,11 @@ import { registerHover } from './routes/hover.js';
 import { registerTopicPrompt } from './routes/topicPrompt.js';
 import { registerAnalyze } from './routes/analyze.js';
 import type { LLMProvider } from './providers/types.js';
+import { registerNews } from './routes/news.js';
+import type { NewsStore } from './store/newsStore.js';
 import type { ChatStore } from './store/chatStore.js';
 
-export const createApp = async (provider: LLMProvider, store: ChatStore) => {
+export const createApp = async (provider: LLMProvider, store: ChatStore, newsStore: NewsStore) => {
 	const app = Fastify({ logger: true });
 
 	await app.register(cors, {
@@ -24,6 +26,7 @@ export const createApp = async (provider: LLMProvider, store: ChatStore) => {
 	await registerHover(app, provider, store);
 	await registerTopicPrompt(app, provider, store);
 	await registerAnalyze(app, provider);
+	await registerNews(app, newsStore);
 
 	return app;
 };

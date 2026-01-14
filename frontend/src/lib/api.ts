@@ -75,3 +75,17 @@ export const getTopicPrompt = async (topic: string, context: string): Promise<st
 	const data = await response.json();
 	return data.prompt;
 };
+
+export const getNews = async (): Promise<import('./types').NewsItem[]> => {
+	const response = await fetch(`${API_BASE_URL}/api/news`, {
+		method: 'GET',
+		headers: { 'Content-Type': 'application/json' }
+	});
+
+	if (!response.ok) {
+		return [];
+	}
+
+	const data = await response.json();
+	return data.news;
+};

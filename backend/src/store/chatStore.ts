@@ -39,11 +39,11 @@ export class MongoChatStore implements ChatStore {
 		const sessionObjectId = new ObjectId(sessionId);
 		const history = await messages
 			.find({ sessionId: sessionObjectId })
-			.sort({ createdAt: 1 })
-			.limit(10)
+			.sort({ createdAt: -1 })
+			.limit(20)
 			.toArray();
 
-		return history.map((item) => ({
+		return history.reverse().map((item) => ({
 			role: item.role,
 			content: item.content
 		}));
