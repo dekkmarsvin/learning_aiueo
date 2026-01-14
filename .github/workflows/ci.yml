@@ -71,12 +71,12 @@ jobs:
     
       - uses: actions/delete-package-versions@v5
         with: 
-          package-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+          package-name: ${{ github.event.repository.name }}-backend
           package-type: 'container'
           min-versions-to-keep: 1
       
       - uses: actions/delete-package-versions@v5
         with: 
-          package-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+          package-name: ${{ github.event.repository.name }}-frontend
           package-type: 'container'
           min-versions-to-keep: 1
