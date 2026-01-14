@@ -8,7 +8,7 @@ Three-container setup for a 1:1 Japanese typing practice app with a modular LLM 
 - mongo: MongoDB
 
 ## Quick start
-1) Configure LLM settings in `docker-compose.yml` or create `backend/.env` for local dev.
+1) Configure LLM settings in `.env` (never commit secrets).
 2) Run Docker:
 
 ```bash
@@ -17,6 +17,11 @@ docker compose up --build
 
 UI: http://localhost:3000
 API: http://localhost:8080/api/health
+
+## Auth & security basics
+- Set `API_AUTH_TOKEN` and send it as `x-api-key` (or `Authorization: Bearer ...`) on all `/api/*` requests.
+- Set `CORS_ORIGINS` to a comma-separated allowlist (example: `http://localhost:3000`).
+- Rotate any key that was ever committed to git history.
 
 ## Local development
 Frontend:

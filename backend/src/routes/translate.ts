@@ -42,6 +42,15 @@ export const registerTranslate = async (
             const jsonStr = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
             const parsed = JSON.parse(jsonStr);
 
+            if (
+                !parsed ||
+                typeof parsed.translated !== 'string' ||
+                typeof parsed.reading !== 'string'
+            ) {
+                request.log.error({ output: llmResult.content }, 'LLM response invalid');
+                return reply.status(502).send({ error: 'LLM response invalid' });
+            }
+
             return {
                 original: text,
                 translated: parsed.translated,

@@ -59,30 +59,33 @@ const extractJson = (text: string): StructuredResponse | null => {
 	}
 };
 
-const normalizeStructured = (value: StructuredResponse | null, fallbackReply: string) => {
-	if (!value) {
-		// If parsing failed entirely, treat the whole text as the reply
-		// But if it looks like broken JSON, we might want to be careful.
-		// For now, valid text fallback.
-		return {
-			reply: fallbackReply,
-			analysis: '',
-			suggestions: [],
-			grammarNotes: [],
-			analysisTranslation: '',
-			grammarNotesTranslation: []
-		};
-	}
+const coerceStringArray = (value: unknown) =>
+	Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
 
-	return {
-		reply: value.reply || fallbackReply,
-		analysis: value.analysis || '',
-		suggestions: Array.isArray(value.suggestions) ? value.suggestions : [],
-		grammarNotes: Array.isArray(value.grammarNotes) ? value.grammarNotes : [],
-		analysisTranslation: value.analysisTranslation || '',
-		grammarNotesTranslation: Array.isArray(value.grammarNotesTranslation) ? value.grammarNotesTranslation : []
-	};
+const coerceSuggestions = (value: unknown) => {
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((item) => {
+			if (!item || typeof item !== 'object') return null;
+			const text = (item as { text?: unknown }).text;
+			const reading = (item as { reading?: unknown }).reading;
+			if (typeof text !== 'string' || typeof reading !== 'string') return null;
+			return { text, reading };
+		})
+		.filter((item): item is { text: string; reading: string } => Boolean(item));
 };
+
+const normalizeStructured = (value: StructuredResponse) => ({
+	reply: typeof value.reply === 'string' ? value.reply : '',
+	analysis: typeof value.analysis === 'string' ? value.analysis : '',
+	suggestions: coerceSuggestions(value.suggestions),
+	grammarNotes: coerceStringArray(value.grammarNotes),
+	analysisTranslation: typeof value.analysisTranslation === 'string' ? value.analysisTranslation : '',
+	grammarNotesTranslation: coerceStringArray(value.grammarNotesTranslation)
+});
+
+const isStructuredResponse = (value: StructuredResponse) =>
+	typeof value.reply === 'string' && typeof value.analysis === 'string';
 
 export const registerChat = async (
 	app: FastifyInstance,
@@ -120,7 +123,13 @@ export const registerChat = async (
 		await store.addUserMessage(resolvedSessionId, message);
 
 		const llmResult = await provider.generate(promptMessages);
-		const structured = normalizeStructured(extractJson(llmResult.content), llmResult.content);
+		const parsed = extractJson(llmResult.content);
+		if (!parsed || !isStructuredResponse(parsed)) {
+			request.log.error({ output: llmResult.content }, 'LLM response invalid');
+			return reply.status(502).send({ error: 'LLM response invalid' });
+		}
+
+		const structured = normalizeStructured(parsed);
 
 		await store.addAssistantMessage(resolvedSessionId, structured);
 

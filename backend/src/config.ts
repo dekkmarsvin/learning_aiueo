@@ -12,5 +12,12 @@ export const config = {
 	model: process.env.LLM_MODEL || 'gpt-4o-mini',
 	baseUrl: process.env.LLM_BASE_URL || 'http://host.docker.internal:1234',
 	apiKey: process.env.LLM_API_KEY || '',
-	geminiApiKey: process.env.GEMINI_API_KEY || ''
+	geminiApiKey: process.env.GEMINI_API_KEY || '',
+	apiAuthToken: process.env.API_AUTH_TOKEN || '',
+	corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')
+		.split(',')
+		.map((origin) => origin.trim())
+		.filter(Boolean),
+	rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 60),
+	rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000)
 };

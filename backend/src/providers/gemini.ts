@@ -15,7 +15,7 @@ const buildPrompt = (messages: ChatMessage[]) =>
 		.join('\n');
 
 export const createGeminiProvider = ({ apiKey, model }: GeminiConfig): LLMProvider => {
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 	return {
 		async generate(messages: ChatMessage[]) {
@@ -26,7 +26,10 @@ export const createGeminiProvider = ({ apiKey, model }: GeminiConfig): LLMProvid
 			const prompt = buildPrompt(messages);
 			const response = await fetch(url, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: {
+					'Content-Type': 'application/json',
+					'x-goog-api-key': apiKey
+				},
 				body: JSON.stringify({
 					contents: [{ role: 'user', parts: [{ text: prompt }] }],
 					generationConfig: { temperature: 0.4 }

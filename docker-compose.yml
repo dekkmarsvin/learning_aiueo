@@ -14,11 +14,15 @@ services:
       PORT: 8080
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB: aiueo
-      LLM_PROVIDER: lmstudio
-      LLM_MODEL: local-model
-      LLM_BASE_URL: http://host.docker.internal:1234
-      LLM_API_KEY: ""
-      GEMINI_API_KEY: ""
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
     depends_on:
       - mongo
 
@@ -27,6 +31,7 @@ services:
       context: ./frontend
       args:
         VITE_API_BASE_URL: http://localhost:8080
+        VITE_API_AUTH_TOKEN: ${VITE_API_AUTH_TOKEN}
     ports:
       - "3000:3000"
     environment:

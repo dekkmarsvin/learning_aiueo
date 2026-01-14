@@ -62,19 +62,31 @@ export const registerFurigana = async (
             try {
                 parsed = JSON.parse(jsonStr);
             } catch {
-                // Fallback if not valid JSON
-                return [{ surface: text, reading: '' }];
+                request.log.error({ output: llmResult.content }, 'LLM response invalid');
+                return reply.status(502).send({ error: 'LLM response invalid' });
             }
 
             if (!Array.isArray(parsed)) {
-                return [{ surface: text, reading: '' }];
+                request.log.error({ output: llmResult.content }, 'LLM response invalid');
+                return reply.status(502).send({ error: 'LLM response invalid' });
             }
 
-            return parsed;
+            const sanitized = parsed.filter(
+                (item) =>
+                    item &&
+                    typeof item.surface === 'string' &&
+                    typeof item.reading === 'string'
+            );
+
+            if (sanitized.length === 0) {
+                request.log.error({ output: llmResult.content }, 'LLM response invalid');
+                return reply.status(502).send({ error: 'LLM response invalid' });
+            }
+
+            return sanitized;
         } catch (err) {
             request.log.error(err);
-            // Fallback on error
-            return [{ surface: text, reading: '' }];
+            return reply.status(500).send({ error: 'Furigana failed' });
         }
     });
 };
