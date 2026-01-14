@@ -1,0 +1,49 @@
+services:
+  mongo:
+    image: mongo:7
+    # ports:
+    #   - "27017:27017" # Internal only
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - aiueo_net
+
+  backend:
+    image: ghcr.io/dekkmarsvin/learning_aiueo-backend:latest
+    # ports:
+    #   - "8080:8080" # Internal only
+    environment:
+      ALLOWED_ORIGINS: "http://localhost:3000"
+      PORT: 8080
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DB: aiueo
+      LLM_PROVIDER: gemini
+      # LLM_PROVIDER: lmstudio
+      # LLM_MODEL: local-model
+      LLM_MODEL: gemini-3-flash-preview
+      LLM_BASE_URL: http://host.docker.internal:1234
+      LLM_API_KEY: ${LLM_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      - mongo
+    networks:
+      - aiueo_net
+
+  frontend:
+    image: ghcr.io/dekkmarsvin/learning_aiueo-frontend:latest
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+    depends_on:
+      - backend
+    networks:
+      - aiueo_net
+
+volumes:
+  mongo_data:
+
+
+networks:
+  aiueo_net:
+    driver: bridge
