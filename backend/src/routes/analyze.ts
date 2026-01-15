@@ -1,6 +1,8 @@
+
 import type { FastifyInstance } from 'fastify';
 import type { LLMProvider, ChatMessage } from '../providers/types.js';
 import { cacheService } from '../services/cache.js';
+import { dictionaryService } from '../services/dictionary.js';
 
 type AnalyzeRequestBody = {
     text: string;
@@ -14,18 +16,9 @@ type AnalyzeResponse = {
     segments: { surface: string; reading: string }[]; // Furigana segments
 };
 
-const systemPrompt = `You are a Japanese language analysis engine.
-Process the input text and provide:
-1. "translated": Natural, polite translation in the source language (or Chinese if source is Japanese).
-2. "reading": The full Hiragana reading of the input text.
-3. "segments": Parse the input into segments (bunsetsu). If a segment has Kanji, provide its reading in Hiragana. If no Kanji, reading is entity string.
-
-Return purely JSON:
-{
-  "translated": "...",
-  "reading": "...",
-  "segments": [{"surface": "...", "reading": ""}, ...]
-}`;
+const systemPrompt = `You are a translator.
+Translate the following Japanese text into natural, polite target language (Traditional Chinese if not specified).
+Return ONLY the translation string. Do not include quotes or explanations.`;
 
 export const registerAnalyze = async (
     app: FastifyInstance,
@@ -47,22 +40,31 @@ export const registerAnalyze = async (
             return cached;
         }
 
-        const messages: ChatMessage[] = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Text: ${text}` }
-        ];
-
         try {
-            const llmResult = await provider.generate(messages);
-            const content = llmResult.content.trim();
-            const jsonStr = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            const parsed = JSON.parse(jsonStr);
+            // Parallel execution: LLM for translation, DictionaryService for analysis
+            const translationPromise = (async () => {
+                const messages: ChatMessage[] = [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Text: ${text}` }
+                ];
+                const llmResult = await provider.generate(messages);
+                return llmResult.content.trim();
+            })();
+
+            const analysisPromise = dictionaryService.parseSegments(text);
+            const readingPromise = dictionaryService.getReading(text);
+
+            const [translated, segments, reading] = await Promise.all([
+                translationPromise,
+                analysisPromise,
+                readingPromise
+            ]);
 
             const result = {
                 original: text,
-                translated: parsed.translated,
-                reading: parsed.reading,
-                segments: parsed.segments
+                translated,
+                reading,
+                segments
             };
 
             cacheService.set(cacheKey, result);

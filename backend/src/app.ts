@@ -12,8 +12,13 @@ import { registerNews } from './routes/news.js';
 import type { NewsStore } from './store/newsStore.js';
 import type { ChatStore } from './store/chatStore.js';
 
+import { dictionaryService } from './services/dictionary.js';
+
 export const createApp = async (provider: LLMProvider, store: ChatStore, newsStore: NewsStore) => {
 	const app = Fastify({ logger: true });
+
+	// Initialize Dictionary Service
+	await dictionaryService.initialize();
 
 	// CORS configuration
 	// In production, set ALLOWED_ORIGINS to your domain(s), comma-separated.
