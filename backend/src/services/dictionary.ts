@@ -19,6 +19,7 @@ export class DictionaryService {
         if (this.initPromise) return this.initPromise;
 
         console.log('Initializing Kuroshiro...');
+        console.log('Dict Path:', path.resolve('node_modules/kuromoji/dict'));
         this.initPromise = (async () => {
             const analyzer = new KuromojiAnalyzer({
                 dictPath: path.resolve('node_modules/kuromoji/dict')
@@ -49,25 +50,7 @@ export class DictionaryService {
      */
     async parseSegments(text: string): Promise<{ surface: string; reading: string }[]> {
         await this.initialize();
-        // Kuroshiro doesn't expose the raw tokenization easily in the public API, 
-        // but verify if we can get it or if we need to use a hack or just rely on convert with a delimiter
-        // Using spaced mode is often a good proxy for segmentation
-        const spaced = await this.kuroshiro.convert(text, { mode: 'spaced', to: 'hiragana' });
-        const surfaces = await this.kuroshiro.convert(text, { mode: 'spaced', to: 'raw' }); // 'raw' isn't a standard 'to' option maybe? 
-        // Wait, 'raw' is not standard.
-        // If we want segments, we might be better off using the underlying tokenizer if accessible, 
-        // OR, just use the 'furigana' mode which returns HTML/text with ruby, and parse that?
-        // Let's try 'okurigana' mode as input to a parser?
-
-        // Actually, let's keep it simple for now. 
-        // If we really need strict segmentation:
-        // We can just use the parsing logic we used to have or...
-        // Let's implement a simple segmentation based on the 'spaced' output if possible.
-        // But 'spaced' gives reading.
-
-        // Alternative: Use the analyzer directly if needed, but Kuroshiro wraps it.
-        // Let's use a split strategy based on kuroshiro's output if possible.
-
+        // Kuroshiro doesn't expose the raw tokenization easily in the public API
         // For now, let's implement a "best effort" using 'okurigana' output which looks like:
         // 漢字(かんじ) or <ruby>...
         // Default okurigana uses parentheses.
@@ -77,60 +60,67 @@ export class DictionaryService {
     }
 
     private parseOkurigana(original: string, converted: string): { surface: string; reading: string }[] {
-        // Kuroshiro (okurigana) output:  "天気(てんき)は良(い)いです"
-        // We need to map this back to: [{"surface": "天気", "reading": "てんき"}, {"surface": "は", "reading": ""}, ...]
-
         const segments: { surface: string; reading: string }[] = [];
-        const regex = /([^(\s]+)(?:\(([^)]+)\))?/g;
+
+        // Regex to find "Text(Reading)" pattern. 
+        // We look for "(Reading)" blocks and assume they apply to the *end* of the preceding text.
+        const readingRegex = /\(([^)]+)\)/g;
         let match;
+        let lastIndex = 0;
 
-        // This simple regex might fail on complex mixed content, but Kuroshiro usually outputs consistently.
-        // However, "okurigana" mode keeps kana as is.
-        // Example: 天気(てんき)は -> 天気(reading) + は
-        // But Kuroshiro okurigana output is a string.
+        while ((match = readingRegex.exec(converted)) !== null) {
+            const readingBlockStart = match.index;
+            const readingBlockEnd = match.index + match[0].length;
+            const reading = match[1]; // content inside parens
 
-        // Let's try to match the converted string against the original to be safe?
-        // Actually, just parsing the parens is usually enough for "kanji(kana)" pattern.
-        // Non-kanji parts are just text.
+            // Text between previous match and this reading block
+            // This contains the "Plain Text" prefix + "Surface" for this reading
+            const precedingText = converted.substring(lastIndex, readingBlockStart);
 
-        let currentPos = 0;
+            if (!precedingText) {
+                // Should not happen for valid okurigana unless it starts with parens?
+                lastIndex = readingBlockEnd;
+                continue;
+            }
 
-        // Note: kuroshiro okurigana format is: Kanji(Reading)Kana...
+            // Strategy: The "Surface" for this reading is the suffix of precedingText 
+            // that consists of Non-Hiragana/Non-Punctuation characters (heuristic).
+            // Usually it's Kanji [Kanji]+, but could handle numbers etc.
+            // Split point is after the LAST character that IS Hiragana/Punctuation/Space.
 
-        // We can iterate the converted string
-        // If we see Kanji followed by (Kana), that's a segment?
-        // Kuroshiro's okurigana is: "漢字(かんじ)"
+            // Regex for characters that BREAK a surface (Hiragana, Punctuation, Whitespace)
+            // \u3040-\u309f: Hiragana
+            // \u3000-\u303f: CJK Symbols and Punctuation (includes 、 。 space)
+            // \s: Whitespace
+            // We iterate backwards or find the last index of such char.
 
-        // Let's assume the parenthesis format suitable for parsing.
+            let splitIndex = -1;
+            const separatorRegex = /[\u3040-\u309f\u3000-\u303f\s]/;
 
-        const parts = converted.split(/([^\x00-\x7F]+)\(([^)]+)\)/); // This split might be tricky.
+            for (let i = precedingText.length - 1; i >= 0; i--) {
+                if (separatorRegex.test(precedingText[i])) {
+                    splitIndex = i;
+                    break;
+                }
+            }
 
-        // Let's use a simpler approach. 
-        // We want to verify against original text to ensure correctness? 
-        // Or simply trust the output.
-        // For MVP, relying on the parens is fine.
+            const plainPart = precedingText.substring(0, splitIndex + 1);
+            const surfacePart = precedingText.substring(splitIndex + 1);
 
-        // Regex to find "Text(Reading)" or "Text"
-        // But wait, "Text" could be "は".
-        // "Text(Reading)" is "天気(てんき)".
+            if (plainPart) {
+                segments.push({ surface: plainPart, reading: '' });
+            }
+            if (surfacePart) {
+                segments.push({ surface: surfacePart, reading: reading });
+            }
 
-        // Issue: "明日(あした)" vs "明日(あす)" - depends on dictionary.
+            lastIndex = readingBlockEnd;
+        }
 
-        // Let's implement a parser loop.
-        const tokenRegex = /([^\(\)]+)(?:\(([^)]+)\))?/g;
-        while ((match = tokenRegex.exec(converted)) !== null) {
-            // match[1] is surface (or part of it), match[2] is reading if present.
-            // Wait, if input is "今日は", output is "今日(きょう)は"
-            // match 1: "今日", group 2: "きょう"
-            // match 2: "は", group 2: undefined
-
-            if (match[0].trim() === '') continue;
-
-            const surface = match[1];
-            const reading = match[2] || '';
-
-            // Note: Kuroshiro might group things.
-            segments.push({ surface, reading });
+        // Add remaining text after last match
+        if (lastIndex < converted.length) {
+            const remaining = converted.substring(lastIndex);
+            segments.push({ surface: remaining, reading: '' });
         }
 
         return segments;
