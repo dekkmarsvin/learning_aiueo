@@ -1,10 +1,12 @@
-import Kuroshiro from 'kuroshiro';
+import * as KuroshiroImport from 'kuroshiro';
+// @ts-ignore
+const Kuroshiro = KuroshiroImport.default?.default || KuroshiroImport.default || KuroshiroImport;
 import KuromojiAnalyzer from 'kuroshiro-analyzer-kuromoji';
 import axios from 'axios';
 import path from 'path';
 
 export class DictionaryService {
-    private kuroshiro: Kuroshiro;
+    private kuroshiro: any;
     private initialized: boolean = false;
     private initPromise: Promise<void> | null = null;
 
