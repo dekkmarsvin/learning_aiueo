@@ -18,7 +18,7 @@ export const createOpenAICompatibleProvider = ({
 	const url = new URL('/v1/chat/completions', baseUrl).toString();
 
 	return {
-		async generate(messages: ChatMessage[]) {
+		async generate(messages: ChatMessage[], options?: any) {
 			const response = await fetch(url, {
 				method: 'POST',
 				headers: {

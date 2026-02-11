@@ -7,6 +7,10 @@ type ChatRequestBody = {
 	message?: string;
 	topic?: string;
 	targetLang?: string;
+	tools?: {
+		googleSearch?: boolean;
+		urlContext?: string[];
+	};
 };
 
 type StructuredResponse = {
@@ -90,7 +94,7 @@ export const registerChat = async (
 	store: ChatStore
 ) => {
 	app.post<{ Body: ChatRequestBody }>('/api/chat', async (request, reply) => {
-		const { sessionId, message, topic, targetLang = 'tc' } = request.body || {};
+		const { sessionId, message, topic, targetLang = 'tc', tools } = request.body || {};
 
 		if (!message || typeof message !== 'string') {
 			return reply.status(400).send({ error: 'message is required' });
@@ -119,7 +123,7 @@ export const registerChat = async (
 
 		await store.addUserMessage(resolvedSessionId, message);
 
-		const llmResult = await provider.generate(promptMessages);
+		const llmResult = await provider.generate(promptMessages, { tools });
 		const structured = normalizeStructured(extractJson(llmResult.content), llmResult.content);
 
 		await store.addAssistantMessage(resolvedSessionId, structured);

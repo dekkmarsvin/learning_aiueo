@@ -15,6 +15,10 @@ export type ChatRequest = {
 	message: string;
 	topic?: string;
 	targetLang?: string;
+	tools?: {
+		googleSearch?: boolean;
+		urlContext?: string[];
+	};
 };
 
 export type TranslateRequest = {

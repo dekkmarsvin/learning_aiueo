@@ -7,6 +7,13 @@ export type LLMResult = {
 	content: string;
 };
 
+export type GenerateOptions = {
+	tools?: {
+		googleSearch?: boolean;
+		urlContext?: string[];
+	};
+};
+
 export interface LLMProvider {
-	generate(messages: ChatMessage[]): Promise<LLMResult>;
+	generate(messages: ChatMessage[], options?: GenerateOptions): Promise<LLMResult>;
 }
